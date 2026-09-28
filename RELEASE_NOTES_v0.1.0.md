@@ -1,4 +1,4 @@
-# Kira Tablet v0.1.1 Preview
+# Kira Tablet v0.1.2 Preview
 
 First public preview focused on Windows 11 tablets and touch-first landscape use.
 
@@ -22,3 +22,9 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 - Uses a desktop Edge user agent on Windows WebView2.
 - Reads session cookies from the active WebView profile after login.
 - Falls back to the configured COPY mirror only when the official web page fails to load.
+
+## v0.1.2 fixes
+- Properly initializes WebViewEnvironment on Windows before creating InAppWebView.
+- Stores WebView2 user data in the app support directory so installed builds can create a writable profile.
+- Uses the same Windows WebViewEnvironment for cookie access.
+- Shows an explicit WebView2 initialization state/error instead of a blank login pane.

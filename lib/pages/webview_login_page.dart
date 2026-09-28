@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../api/user/user_api.dart';
 import '../l10n/app_localizations.dart';
@@ -27,10 +29,13 @@ class WebViewLoginPage extends ConsumerStatefulWidget {
 
 class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   InAppWebViewController? _controller;
+  WebViewEnvironment? _webViewEnvironment;
   double _progress = 0;
   bool _completing = false;
   bool _readingCredentials = false;
   bool _usingFallback = false;
+  bool _webViewReady = !Platform.isWindows;
+  String? _webViewInitError;
   String? _error;
 
   static const _officialWebHost = 'www.mangacopy.com';
@@ -45,10 +50,80 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   WebUri get _fallbackLoginUri =>
       WebUri('https://$_fallbackHost/web/login/loginByAccount');
 
+  CookieManager get _cookieManager {
+    final environment = _webViewEnvironment;
+    if (Platform.isWindows && environment != null) {
+      return CookieManager.instance(webViewEnvironment: environment);
+    }
+    return CookieManager.instance();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initializeWebView());
+  }
+
+  Future<void> _initializeWebView() async {
+    if (!Platform.isWindows) return;
+    try {
+      final availableVersion = await WebViewEnvironment.getAvailableVersion();
+      if (availableVersion == null || availableVersion.isEmpty) {
+        throw StateError('WebView2 Runtime is not available');
+      }
+
+      final supportDirectory = await getApplicationSupportDirectory();
+      final webViewDataDirectory = Directory(
+        '${supportDirectory.path}${Platform.pathSeparator}webview2',
+      );
+      await webViewDataDirectory.create(recursive: true);
+
+      final environment = await WebViewEnvironment.create(
+        settings: WebViewEnvironmentSettings(
+          userDataFolder: webViewDataDirectory.path,
+        ),
+      );
+
+      if (!mounted) {
+        await environment.dispose();
+        return;
+      }
+
+      setState(() {
+        _webViewEnvironment = environment;
+        _webViewReady = true;
+        _webViewInitError = null;
+      });
+    } catch (error, stack) {
+      unawaited(
+        AppLogger.instance.recordError(
+          error,
+          stackTrace: stack,
+          source: 'webview_login.initialize_windows',
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _webViewReady = false;
+        _webViewInitError = 'WebView2 初始化失敗：$error';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    final environment = _webViewEnvironment;
+    _webViewEnvironment = null;
+    if (environment != null) {
+      unawaited(environment.dispose());
+    }
+    super.dispose();
+  }
+
   /// 读取多个候选域名下的 cookie（官网可能跳转到 www 子域，
   /// token 可能写在父域或当前实际页面域上）。
   Future<Map<String, String>> _readCookieMap() async {
-    final manager = CookieManager.instance();
+    final manager = _cookieManager;
     final result = <String, String>{};
     final candidates = <WebUri>{
       _baseUri,
@@ -230,7 +305,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   }
 
   Future<void> _resetWebSession() async {
-    final manager = CookieManager.instance();
+    final manager = _cookieManager;
     await manager.deleteCookies(url: _baseUri, domain: '.mangacopy.com');
     await manager.deleteCookies(url: _baseUri, domain: 'mangacopy.com');
     final fallbackBase = WebUri('https://$_fallbackHost');
@@ -300,28 +375,65 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                   ),
                 ),
               Expanded(
-                child: InAppWebView(
-                  initialUrlRequest: URLRequest(url: _loginUri),
-                  initialSettings: InAppWebViewSettings(
-                    userAgent:
-                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                        'AppleWebKit/537.36 (KHTML, like Gecko) '
-                        'Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0',
-                  ),
-                  onWebViewCreated: (controller) => _controller = controller,
-                  onProgressChanged: (controller, progress) {
-                    setState(() => _progress = progress / 100);
-                  },
-                  onLoadStop: (controller, url) {
-                    if (mounted && _error != null && !_completing) {
-                      setState(() => _error = null);
-                    }
-                    unawaited(_tryExtractAndFinish());
-                  },
-                  onReceivedError: _handleWebError,
-                  onUpdateVisitedHistory: (controller, url, isReload) =>
-                      _tryExtractAndFinish(),
-                ),
+                child: _webViewReady
+                    ? InAppWebView(
+                        webViewEnvironment: _webViewEnvironment,
+                        initialUrlRequest: URLRequest(url: _loginUri),
+                        initialSettings: InAppWebViewSettings(
+                          userAgent:
+                              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                              'AppleWebKit/537.36 (KHTML, like Gecko) '
+                              'Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0',
+                        ),
+                        onWebViewCreated: (controller) =>
+                            _controller = controller,
+                        onProgressChanged: (controller, progress) {
+                          setState(() => _progress = progress / 100);
+                        },
+                        onLoadStop: (controller, url) {
+                          if (mounted && _error != null && !_completing) {
+                            setState(() => _error = null);
+                          }
+                          unawaited(_tryExtractAndFinish());
+                        },
+                        onReceivedError: _handleWebError,
+                        onUpdateVisitedHistory: (controller, url, isReload) =>
+                            _tryExtractAndFinish(),
+                      )
+                    : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xxl),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_webViewInitError == null)
+                                const CircularProgressIndicator()
+                              else
+                                Icon(
+                                  Icons.web_asset_off,
+                                  size: 48,
+                                  color: cs.error,
+                                ),
+                              const SizedBox(height: AppSpacing.lg),
+                              Text(
+                                _webViewInitError ?? '????? WebView2?',
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_webViewInitError != null) ...[
+                                const SizedBox(height: AppSpacing.lg),
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    setState(() => _webViewInitError = null);
+                                    unawaited(_initializeWebView());
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('??'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),
