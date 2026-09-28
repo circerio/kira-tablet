@@ -15,4 +15,4 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 ## Known limitations
 - Preview build; not code-signed.
 - Web/API changes can temporarily break banner or data loading.
-- Windows updater is intentionally disabled until this fork has its own release repository.
+- Windows updater is intentionally disabled for this Preview; GitHub Releases is the update source of truth.
