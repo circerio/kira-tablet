@@ -29,8 +29,8 @@ class _LoginPageState extends State<LoginPage> {
   static final _hotMangaRegisterUri = Uri.parse(
     'https://m.manga2026.xyz/v2h5/register',
   );
-  static Uri get _copyMangaRegisterUri => Uri.parse(
-    'https://${UserManager().copyLoginHost}/web/login/loginByAccount',
+  static final _copyMangaRegisterUri = Uri.parse(
+    'https://www.mangacopy.com/web/login/loginByAccount',
   );
 
   final _api = ApiClient();

@@ -30,20 +30,32 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   double _progress = 0;
   bool _completing = false;
   bool _readingCredentials = false;
+  bool _usingFallback = false;
   String? _error;
 
-  String get _host => ref.read(userManagerProvider).copyLoginHost;
+  static const _officialWebHost = 'www.mangacopy.com';
 
-  WebUri get _baseUri => WebUri('https://$_host');
+  String get _fallbackHost => ref.read(userManagerProvider).copyLoginHost;
 
-  WebUri get _loginUri => WebUri('https://$_host/web/login/loginByAccount');
+  WebUri get _baseUri => WebUri('https://$_officialWebHost');
+
+  WebUri get _loginUri =>
+      WebUri('https://$_officialWebHost/web/login/loginByAccount');
+
+  WebUri get _fallbackLoginUri =>
+      WebUri('https://$_fallbackHost/web/login/loginByAccount');
 
   /// 读取多个候选域名下的 cookie（官网可能跳转到 www 子域，
   /// token 可能写在父域或当前实际页面域上）。
   Future<Map<String, String>> _readCookieMap() async {
     final manager = CookieManager.instance();
     final result = <String, String>{};
-    final candidates = <WebUri>{_baseUri, WebUri('https://www.$_host')};
+    final candidates = <WebUri>{
+      _baseUri,
+      WebUri('https://mangacopy.com'),
+      WebUri('https://$_fallbackHost'),
+      WebUri('https://www.$_fallbackHost'),
+    };
     final currentUrl = await _controller?.getUrl();
     if (currentUrl != null && _isLoginHost(currentUrl.host)) {
       candidates.add(currentUrl);
@@ -51,7 +63,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
     for (final uri in candidates) {
       try {
-        final cookies = await manager.getCookies(url: uri);
+        final cookies = await manager.getCookies(
+          url: uri,
+          webViewController: _controller,
+        );
         for (final c in cookies) {
           if (c.name.isNotEmpty && !result.containsKey(c.name)) {
             result[c.name] = c.value?.toString() ?? '';
@@ -71,8 +86,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   }
 
   bool _isLoginHost(String host) {
-    final base = _host.startsWith('www.') ? _host.substring(4) : _host;
-    return host == base || host == 'www.$base';
+    final normalized = host.toLowerCase();
+    final fallbackBase = _fallbackHost.startsWith('www.')
+        ? _fallbackHost.substring(4)
+        : _fallbackHost;
+    return normalized == 'mangacopy.com' ||
+        normalized == 'www.mangacopy.com' ||
+        normalized == fallbackBase ||
+        normalized == 'www.$fallbackBase';
   }
 
   /// Read the official page's candidate token and profile together. Storage
@@ -190,10 +211,32 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     }
   }
 
+  Future<void> _handleWebError(
+    InAppWebViewController controller,
+    WebResourceRequest request,
+    WebResourceError error,
+  ) async {
+    if (request.isForMainFrame != true || _usingFallback) return;
+    final host = request.url.host.toLowerCase();
+    if (host != 'mangacopy.com' && host != 'www.mangacopy.com') return;
+
+    _usingFallback = true;
+    if (mounted) {
+      setState(() {
+        _error = '官網主站載入失敗，正在切換官方備援入口…';
+      });
+    }
+    await controller.loadUrl(urlRequest: URLRequest(url: _fallbackLoginUri));
+  }
+
   Future<void> _resetWebSession() async {
     final manager = CookieManager.instance();
-    await manager.deleteCookies(url: _baseUri, domain: '.$_host');
-    await manager.deleteCookies(url: _baseUri, domain: _host);
+    await manager.deleteCookies(url: _baseUri, domain: '.mangacopy.com');
+    await manager.deleteCookies(url: _baseUri, domain: 'mangacopy.com');
+    final fallbackBase = WebUri('https://$_fallbackHost');
+    await manager.deleteCookies(url: fallbackBase, domain: '.$_fallbackHost');
+    await manager.deleteCookies(url: fallbackBase, domain: _fallbackHost);
+    _usingFallback = false;
     await _controller?.loadUrl(urlRequest: URLRequest(url: _loginUri));
   }
 
@@ -259,11 +302,23 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
               Expanded(
                 child: InAppWebView(
                   initialUrlRequest: URLRequest(url: _loginUri),
+                  initialSettings: InAppWebViewSettings(
+                    userAgent:
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                        'AppleWebKit/537.36 (KHTML, like Gecko) '
+                        'Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0',
+                  ),
                   onWebViewCreated: (controller) => _controller = controller,
                   onProgressChanged: (controller, progress) {
                     setState(() => _progress = progress / 100);
                   },
-                  onLoadStop: (controller, url) => _tryExtractAndFinish(),
+                  onLoadStop: (controller, url) {
+                    if (mounted && _error != null && !_completing) {
+                      setState(() => _error = null);
+                    }
+                    unawaited(_tryExtractAndFinish());
+                  },
+                  onReceivedError: _handleWebError,
                   onUpdateVisitedHistory: (controller, url, isReload) =>
                       _tryExtractAndFinish(),
                 ),

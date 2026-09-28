@@ -1,4 +1,4 @@
-# Kira Tablet v0.1.0 Preview
+# Kira Tablet v0.1.1 Preview
 
 First public preview focused on Windows 11 tablets and touch-first landscape use.
 
@@ -16,3 +16,9 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 - Preview build; not code-signed.
 - Web/API changes can temporarily break banner or data loading.
 - Windows updater is intentionally disabled for this Preview; GitHub Releases is the update source of truth.
+
+## v0.1.1 fixes
+- COPY web login now opens the official www.mangacopy.com login page first.
+- Uses a desktop Edge user agent on Windows WebView2.
+- Reads session cookies from the active WebView profile after login.
+- Falls back to the configured COPY mirror only when the official web page fails to load.
