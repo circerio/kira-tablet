@@ -36,7 +36,7 @@ class AboutPage extends StatefulWidget {
 class _AboutPageState extends State<AboutPage> {
   final _user = UserManager();
 
-  static const _repoUrl = 'https://github.com/caolib/kira';
+  static const _repoUrl = 'https://github.com/circerio/kira-tablet';
 
   @override
   void initState() {
@@ -148,9 +148,7 @@ class _AboutPageState extends State<AboutPage> {
                               BlendMode.srcIn,
                             ),
                           ),
-                          label: Platform.isWindows
-                              ? 'Kira upstream'
-                              : l10n.aboutRepositoryLabel,
+                          label: l10n.aboutRepositoryLabel,
                           onTap: () async {
                             await launchUrl(
                               Uri.parse(_repoUrl),
@@ -158,19 +156,18 @@ class _AboutPageState extends State<AboutPage> {
                             );
                           },
                         ),
-                        if (!Platform.isWindows)
-                          SettingActionTile(
-                            icon: const Icon(Icons.feedback_outlined),
-                            label: l10n.aboutFeedbackLabel,
-                            onTap: () async {
-                              await launchUrl(
-                                Uri.parse(
-                                  'https://github.com/caolib/kira/issues/new/choose',
-                                ),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            },
-                          ),
+                        SettingActionTile(
+                          icon: const Icon(Icons.feedback_outlined),
+                          label: l10n.aboutFeedbackLabel,
+                          onTap: () async {
+                            await launchUrl(
+                              Uri.parse(
+                                'https://github.com/circerio/kira-tablet/issues/new',
+                              ),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
+                        ),
                         SettingActionTile(
                           icon: const Icon(Icons.bug_report_outlined),
                           label: l10n.aboutLogTitle,
