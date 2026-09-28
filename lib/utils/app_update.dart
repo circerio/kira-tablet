@@ -189,6 +189,10 @@ class AppUpdateService {
   static Future<AppUpdateInfo?> checkForUpdate({
     bool respectSkippedVersion = true,
   }) async {
+    // Kira Tablet is a separately released Windows-first fork. Until a
+    // dedicated release repository is configured, never offer upstream Kira
+    // builds as in-app updates on Windows.
+    if (Platform.isWindows) return null;
     final packageInfo = await PackageInfo.fromPlatform();
     final currentVersion = packageInfo.version;
     final user = UserManager();

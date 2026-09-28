@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "kira" "\0"
+            VALUE "CompanyName", "Kira Tablet contributors" "\0"
+            VALUE "FileDescription", "Kira Tablet - Windows-first touch client" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "kira" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "kira.exe" "\0"
-            VALUE "ProductName", "kira" "\0"
+            VALUE "InternalName", "KiraTablet" "\0"
+            VALUE "LegalCopyright", "Based on Kira (MIT), Copyright (c) 2026 Lonely" "\0"
+            VALUE "OriginalFilename", "KiraTablet.exe" "\0"
+            VALUE "ProductName", "Kira Tablet" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

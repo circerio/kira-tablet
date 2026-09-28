@@ -7,12 +7,16 @@ class _MangaBannerItem {
   final String title;
   final String brief;
   final Comic? comic;
+  final String? pathWord;
+  final bool official;
 
   const _MangaBannerItem({
     required this.cover,
     required this.title,
     required this.brief,
     this.comic,
+    this.pathWord,
+    this.official = false,
   });
 
   factory _MangaBannerItem.fromBanner(MangaBanner banner) {
@@ -25,14 +29,26 @@ class _MangaBannerItem {
       title: title,
       brief: banner.brief,
       comic: comic,
+      pathWord:
+          comic?.pathWord ??
+          (banner.outUuid.trim().isEmpty ? null : banner.outUuid.trim()),
     );
   }
+
+  factory _MangaBannerItem.fromOfficial(OfficialHomeBanner banner) =>
+      _MangaBannerItem(
+        cover: banner.cover,
+        title: '',
+        brief: '',
+        pathWord: banner.pathWord,
+        official: true,
+      );
 }
 
 class _MangaBannerCarousel extends StatefulWidget {
   final List<_MangaBannerItem> items;
   final double hp;
-  final ValueChanged<Comic> onTap;
+  final ValueChanged<_MangaBannerItem> onTap;
 
   const _MangaBannerCarousel({
     required this.items,
@@ -120,7 +136,7 @@ class _MangaBannerCarouselState extends State<_MangaBannerCarousel> {
         // banner 卡片严格按 16:9 固定比例：宽度 = 可用宽 − 两侧 padding，
         // 高度随之联动，保证任何窗口宽度下都不会被拉扁或压窄。
         final bannerWidth = math.max(1.0, constraints.maxWidth - widget.hp * 2);
-        final bannerHeight = (bannerWidth / (16 / 9)).clamp(140.0, 240.0);
+        final bannerHeight = bannerWidth / (900 / 435);
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: widget.hp),
           child: Column(
@@ -140,14 +156,11 @@ class _MangaBannerCarouselState extends State<_MangaBannerCarousel> {
                         final item = widget.items[i % widget.items.length];
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: AspectRatio(
-                            aspectRatio: 16 / 9,
-                            child: _MangaBannerCard(
-                              item: item,
-                              onTap: item.comic == null
-                                  ? null
-                                  : () => widget.onTap(item.comic!),
-                            ),
+                          child: _MangaBannerCard(
+                            item: item,
+                            onTap: item.comic == null && item.pathWord == null
+                                ? null
+                                : () => widget.onTap(item),
                           ),
                         );
                       },
@@ -205,6 +218,12 @@ class _MangaBannerCard extends StatelessWidget {
             CoverBrightnessFilter(
               child: CachedNetworkImage(
                 imageUrl: item.cover,
+                httpHeaders: item.official
+                    ? const {
+                        'Referer': 'https://www.mangacopy.com/',
+                        'User-Agent': 'Mozilla/5.0',
+                      }
+                    : null,
                 fit: BoxFit.cover,
                 fadeInDuration: Duration.zero,
                 fadeOutDuration: Duration.zero,

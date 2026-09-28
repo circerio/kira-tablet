@@ -1,10 +1,9 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(kira LANGUAGES CXX)
+project(kira_tablet_windows LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "kira")
+# The name of the executable created for the application.
+set(BINARY_NAME "KiraTablet")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -72,6 +71,30 @@ add_subdirectory("runner")
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+
+# flutter_secure_storage_windows 4.2.x includes ATL headers but its CMake
+# target does not add the ATL include directory. Resolve the active VS toolset
+# dynamically so clean Windows builds do not depend on a patched Pub cache.
+if(MSVC AND TARGET flutter_secure_storage_windows_plugin)
+  set(_vctools_version_file
+    "${CMAKE_GENERATOR_INSTANCE}/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt")
+  if(EXISTS "${_vctools_version_file}")
+    file(READ "${_vctools_version_file}" _vctools_version)
+    string(STRIP "${_vctools_version}" _vctools_version)
+    set(_atl_include
+      "${CMAKE_GENERATOR_INSTANCE}/VC/Tools/MSVC/${_vctools_version}/atlmfc/include")
+    if(EXISTS "${_atl_include}/atlstr.h")
+      target_include_directories(
+        flutter_secure_storage_windows_plugin PRIVATE "${_atl_include}")
+      set(_atl_lib
+        "${CMAKE_GENERATOR_INSTANCE}/VC/Tools/MSVC/${_vctools_version}/atlmfc/lib/${CMAKE_GENERATOR_PLATFORM}")
+      if(EXISTS "${_atl_lib}/atls.lib")
+        target_link_directories(
+          flutter_secure_storage_windows_plugin PRIVATE "${_atl_lib}")
+      endif()
+    endif()
+  endif()
+endif()
 
 
 # === Installation ===

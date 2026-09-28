@@ -10,6 +10,9 @@ class _ReaderTopBar extends StatelessWidget {
   final VoidCallback? onToggleBookmark;
   final bool isRefreshing;
   final VoidCallback? onRefresh;
+  final bool showFullscreenButton;
+  final bool isFullscreen;
+  final VoidCallback? onToggleFullscreen;
 
   const _ReaderTopBar({
     required this.showToolbar,
@@ -20,6 +23,9 @@ class _ReaderTopBar extends StatelessWidget {
     this.onToggleBookmark,
     this.isRefreshing = false,
     this.onRefresh,
+    this.showFullscreenButton = false,
+    this.isFullscreen = false,
+    this.onToggleFullscreen,
   });
 
   @override
@@ -65,6 +71,17 @@ class _ReaderTopBar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (showFullscreenButton && onToggleFullscreen != null)
+                      IconButton(
+                        icon: Icon(
+                          isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
+                          color: ReaderChrome.onSurface,
+                        ),
+                        tooltip: isFullscreen ? '退出全螢幕' : '全螢幕',
+                        onPressed: onToggleFullscreen,
+                      ),
                     if (onRefresh != null)
                       IconButton(
                         icon: isRefreshing

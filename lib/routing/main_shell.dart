@@ -15,6 +15,7 @@ import '../utils/dialog_width.dart';
 import '../utils/remote_notice_service.dart';
 import '../utils/settings_rebuild_guard.dart';
 import '../utils/toast.dart';
+import '../utils/windows_fullscreen.dart';
 import 'branch_activation.dart';
 
 part 'main_shell_parts/main_shell_badges.dart';
@@ -78,6 +79,7 @@ class _MainShellState extends State<MainShell>
   bool _didAutoCheckUpdate = false;
   bool _didCheckDisclaimer = false;
   bool _didCheckRemoteNotice = false;
+  bool _isWindowFullscreen = false;
   DateTime? _lastBackAttemptAt;
 
   @override
@@ -86,6 +88,7 @@ class _MainShellState extends State<MainShell>
     _user.addListener(handleSettingsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runStartupFlow();
+      unawaited(_syncWindowFullscreen());
     });
   }
 
@@ -173,6 +176,20 @@ class _MainShellState extends State<MainShell>
     if (!mounted || _didCheckRemoteNotice || !_user.remoteNoticeEnabled) return;
     _didCheckRemoteNotice = true;
     unawaited(RemoteNoticeService.syncSilently());
+  }
+
+  Future<void> _syncWindowFullscreen() async {
+    if (!WindowsFullscreen.supported) return;
+    final fullscreen = await WindowsFullscreen.isFullscreen();
+    if (!mounted || fullscreen == _isWindowFullscreen) return;
+    setState(() => _isWindowFullscreen = fullscreen);
+  }
+
+  Future<void> _toggleWindowFullscreen() async {
+    if (!WindowsFullscreen.supported) return;
+    final fullscreen = await WindowsFullscreen.toggle();
+    if (!mounted) return;
+    setState(() => _isWindowFullscreen = fullscreen);
   }
 
   static const _navItemData = {
@@ -373,6 +390,24 @@ class _MainShellState extends State<MainShell>
         backgroundColor: cs.surfaceContainer,
         labelType: NavigationRailLabelType.all,
         groupAlignment: -1.0,
+        trailing: WindowsFullscreen.supported
+            ? Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: IconButton(
+                    tooltip: _isWindowFullscreen ? '退出全螢幕' : '全螢幕',
+                    onPressed: _toggleWindowFullscreen,
+                    icon: Icon(
+                      _isWindowFullscreen
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                    ),
+                  ),
+                ),
+              )
+            : null,
         destinations: [
           for (final key in orderedKeys)
             _buildRailDestination(key: key, label: _navLabel(l10n, key)),

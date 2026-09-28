@@ -36,6 +36,7 @@ import '../utils/network_error.dart';
 import '../utils/reading_history.dart';
 import '../utils/reading_stats.dart';
 import '../utils/toast.dart';
+import '../utils/windows_fullscreen.dart';
 import '../widgets/app_sheet.dart';
 import '../widgets/image_reveal_hold.dart';
 import '../widgets/pinch_zoomable.dart';
@@ -150,6 +151,7 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _loading = true;
   bool _refreshingChapter = false;
   bool _showToolbar = false;
+  bool _isWindowFullscreen = false;
   String? _loadError;
 
   /// extension part 文件里的成员不是 State 子类成员，不能直接调用受保护的
@@ -167,6 +169,20 @@ class _ReaderPageState extends State<ReaderPage> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
     setState(() {});
+  }
+
+  Future<void> _syncWindowFullscreen() async {
+    if (!WindowsFullscreen.supported) return;
+    final fullscreen = await WindowsFullscreen.isFullscreen();
+    if (!mounted || fullscreen == _isWindowFullscreen) return;
+    setState(() => _isWindowFullscreen = fullscreen);
+  }
+
+  Future<void> _toggleWindowFullscreen() async {
+    if (!WindowsFullscreen.supported) return;
+    final fullscreen = await WindowsFullscreen.toggle();
+    if (!mounted) return;
+    setState(() => _isWindowFullscreen = fullscreen);
   }
 
   /// 猛滑后点一下只是给惯性刹车，这种点击不切换工具栏。
@@ -343,6 +359,7 @@ class _ReaderPageState extends State<ReaderPage> {
     // 此前只靠设置面板手动回调刷新——从其他入口改设置时阅读页不会更新。
     _user.addListener(_onUserSettingsChanged);
     _loadChapter();
+    unawaited(_syncWindowFullscreen());
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _volumeChannel.invokeMethod('enableImmersive').catchError((_) {});
     _volumeChannel.setMethodCallHandler(_handleVolumeMethod);
@@ -542,6 +559,34 @@ class _ReaderPageState extends State<ReaderPage> {
                         totalPages: _detail?.contents.length ?? 0,
                       ),
               ),
+            if (WindowsFullscreen.supported &&
+                _isWindowFullscreen &&
+                !_showToolbar)
+              Positioned(
+                top: 8,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Center(
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(24),
+                      child: SizedBox(
+                        width: 64,
+                        height: 48,
+                        child: IconButton(
+                          tooltip: '退出全螢幕',
+                          onPressed: _toggleWindowFullscreen,
+                          icon: const Icon(
+                            Icons.fullscreen_exit,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             _ReaderTopBar(
               showToolbar: _showToolbar,
               chapterName: _detail?.name ?? widget.chapterName,
@@ -551,6 +596,9 @@ class _ReaderPageState extends State<ReaderPage> {
               onToggleBookmark: _detail == null ? null : _toggleBookmark,
               isRefreshing: _refreshingChapter,
               onRefresh: _detail == null ? null : _refreshChapter,
+              showFullscreenButton: WindowsFullscreen.supported,
+              isFullscreen: _isWindowFullscreen,
+              onToggleFullscreen: _toggleWindowFullscreen,
             ),
             if (_detail != null)
               _ReaderBottomBar(

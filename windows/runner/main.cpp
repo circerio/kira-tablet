@@ -26,19 +26,24 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
-  Win32Window::Point origin(10, 10);
-  Win32Window::Size size(440, 950);
-  if (!window.Create(L"kira", origin, size)) {
+  Win32Window::Point origin(40, 40);
+  Win32Window::Size size(1280, 720);
+  if (!window.Create(L"Kira Tablet", origin, size)) {
     return EXIT_FAILURE;
   }
 
   RECT saved_bounds;
   if (window_state::Load(saved_bounds)) {
-    if (const HWND handle = window.GetHandle()) {
-      SetWindowPos(handle, nullptr, saved_bounds.left, saved_bounds.top,
-                   saved_bounds.right - saved_bounds.left,
-                   saved_bounds.bottom - saved_bounds.top,
-                   SWP_NOZORDER | SWP_NOACTIVATE);
+    const auto saved_width = saved_bounds.right - saved_bounds.left;
+    const auto saved_height = saved_bounds.bottom - saved_bounds.top;
+    // Tablet/desktop build is landscape-first. Ignore legacy phone-like
+    // portrait bounds so an old 440x950 state cannot trap the app in portrait.
+    if (saved_width > saved_height && saved_width >= 960 && saved_height >= 540) {
+      if (const HWND handle = window.GetHandle()) {
+        SetWindowPos(handle, nullptr, saved_bounds.left, saved_bounds.top,
+                     saved_width, saved_height,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+      }
     }
   }
 

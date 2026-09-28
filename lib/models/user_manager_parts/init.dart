@@ -200,7 +200,7 @@ extension UserManagerInitPart on UserManager {
     _locale = prefs.getString(UserManager._keyLocale) ?? '';
     _bannerVisible = prefs.getBool(UserManager._keyBannerVisible) ?? true;
     _mangaHomeSource =
-        prefs.getString(UserManager._keyMangaHomeSource) ?? 'hot';
+        prefs.getString(UserManager._keyMangaHomeSource) ?? 'copy';
     _discoverSource = prefs.getString(UserManager._keyDiscoverSource) ?? 'hot';
     _searchTabIndex = (prefs.getInt(UserManager._keySearchTabIndex) ?? 0).clamp(
       0,

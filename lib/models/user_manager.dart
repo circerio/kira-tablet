@@ -267,7 +267,7 @@ class UserManager extends ChangeNotifier {
   /// '' = follow system, 'zh' = Simplified, 'zh-Hant' = Traditional.
   String _locale = '';
   bool _bannerVisible = true;
-  String _mangaHomeSource = 'hot';
+  String _mangaHomeSource = 'copy';
 
   /// 「发现」页自己的数据源，与首页互不影响。
   String _discoverSource = 'hot';

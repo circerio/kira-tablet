@@ -125,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
-    if (_loading) return;
+    if (_loading || _useCopyLogin || widget.copyOnly) return;
     final l10n = AppLocalizations.of(context)!;
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text;
@@ -140,13 +140,10 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final useCopyLogin = widget.copyOnly || _useCopyLogin;
       final saved = await _user.authenticateAndLogin(
-        source: useCopyLogin ? 'copy' : 'hotmanga',
+        source: 'hotmanga',
         password: _rememberMe ? password : '',
-        authenticate: () => useCopyLogin
-            ? _userApi.copyLogin(username, password)
-            : _userApi.login(username, password),
+        authenticate: () => _userApi.login(username, password),
       );
       if (!mounted) return;
       if (saved) {
@@ -160,13 +157,7 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = isIpBlockedLoginError(e)
-            ? l10n.profileLoginIpBlockedHint
-            : widget.copyOnly
-            ? (e is CopyAccountStorageException
-                  ? l10n.copyAccountStorageFailed
-                  : l10n.profileLoginFailedProxyHint)
-            : l10n.profileLoginFailedProxyHint;
+        _error = l10n.profileLoginFailedProxyHint;
         _loading = false;
       });
     }
@@ -349,24 +340,26 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
               ),
             ],
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton(
-              onPressed: _loading ? null : _login,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.mdR),
+            if (!_useCopyLogin) ...[
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton(
+                onPressed: _loading ? null : _login,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.mdR),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        AppLocalizations.of(context)!.profileLoginButton,
+                        style: const TextStyle(fontSize: 16),
+                      ),
               ),
-              child: _loading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      AppLocalizations.of(context)!.profileLoginButton,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-            ),
+            ],
           ],
         ),
       ),
@@ -414,45 +407,70 @@ class _LoginPageState extends State<LoginPage> {
 
   List<Widget> _buildAccountPasswordForm(BuildContext context, ColorScheme cs) {
     final l10n = AppLocalizations.of(context)!;
-    return [
-      if (widget.copyOnly) ...[
+    final sourceSelector = widget.copyOnly
+        ? <Widget>[
+            Text(
+              l10n.copyAccountIndependentHint,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ]
+        : <Widget>[
+            SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(
+                  value: false,
+                  label: Text(l10n.profileHotCredentialLabel),
+                  icon: const Icon(Icons.phone_android, size: 18),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text(l10n.profileCopyCredentialLabel),
+                  icon: const Icon(Icons.language, size: 18),
+                ),
+              ],
+              selected: {_useCopyLogin},
+              onSelectionChanged: (v) => _selectLoginSource(v.first),
+            ),
+          ];
+
+    if (_useCopyLogin) {
+      return [
+        ...sourceSelector,
+        const SizedBox(height: AppSpacing.lg),
         Text(
-          l10n.copyAccountIndependentHint,
+          'Copy 登入只透過官方網頁或既有 Token；此 Windows 版不直接提交帳號密碼。',
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
-      ] else
-        SegmentedButton<bool>(
-          segments: [
-            ButtonSegment(
-              value: false,
-              label: Text(l10n.profileHotCredentialLabel),
-              icon: const Icon(Icons.phone_android, size: 18),
-            ),
-            ButtonSegment(
-              value: true,
-              label: Text(l10n.profileCopyCredentialLabel),
-              icon: const Icon(Icons.language, size: 18),
-            ),
-          ],
-          selected: {_useCopyLogin},
-          onSelectionChanged: (v) => _selectLoginSource(v.first),
-        ),
-      const SizedBox(height: AppSpacing.lg),
-      if (_useCopyLogin) ...[
-        OutlinedButton.icon(
+        const SizedBox(height: AppSpacing.lg),
+        FilledButton.tonalIcon(
           onPressed: _loading ? null : _goWebLogin,
           icon: const Icon(Icons.language),
           label: Text(l10n.profileWebLoginButton),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            minimumSize: const Size(double.infinity, 0),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(double.infinity, 54),
             shape: RoundedRectangleBorder(borderRadius: AppRadius.mdR),
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
-      ],
+        const SizedBox(height: AppSpacing.md),
+        OutlinedButton.icon(
+          onPressed: _loading ? null : _showTokenLoginDialog,
+          icon: const Icon(Icons.key),
+          label: Text(l10n.profileTokenLoginEntry),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 54),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.mdR),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      ...sourceSelector,
+      const SizedBox(height: AppSpacing.lg),
       TextField(
         controller: _usernameCtrl,
         decoration: InputDecoration(

@@ -89,7 +89,7 @@ class _AboutPageState extends State<AboutPage> {
                         ClipRRect(
                           borderRadius: AppRadius.lgR,
                           child: Image.asset(
-                            _user.appLogoPath,
+                            'assets/kira_tablet_icon.png',
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
@@ -101,7 +101,7 @@ class _AboutPageState extends State<AboutPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Kira',
+                                'Kira Tablet',
                                 style: tt.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: -0.2,
@@ -148,7 +148,9 @@ class _AboutPageState extends State<AboutPage> {
                               BlendMode.srcIn,
                             ),
                           ),
-                          label: l10n.aboutRepositoryLabel,
+                          label: Platform.isWindows
+                              ? 'Kira upstream'
+                              : l10n.aboutRepositoryLabel,
                           onTap: () async {
                             await launchUrl(
                               Uri.parse(_repoUrl),
@@ -156,18 +158,19 @@ class _AboutPageState extends State<AboutPage> {
                             );
                           },
                         ),
-                        SettingActionTile(
-                          icon: const Icon(Icons.feedback_outlined),
-                          label: l10n.aboutFeedbackLabel,
-                          onTap: () async {
-                            await launchUrl(
-                              Uri.parse(
-                                'https://github.com/caolib/kira/issues/new/choose',
-                              ),
-                              mode: LaunchMode.externalApplication,
-                            );
-                          },
-                        ),
+                        if (!Platform.isWindows)
+                          SettingActionTile(
+                            icon: const Icon(Icons.feedback_outlined),
+                            label: l10n.aboutFeedbackLabel,
+                            onTap: () async {
+                              await launchUrl(
+                                Uri.parse(
+                                  'https://github.com/caolib/kira/issues/new/choose',
+                                ),
+                                mode: LaunchMode.externalApplication,
+                              );
+                            },
+                          ),
                         SettingActionTile(
                           icon: const Icon(Icons.bug_report_outlined),
                           label: l10n.aboutLogTitle,

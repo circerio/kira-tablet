@@ -1,7 +1,7 @@
 name: kira
-description: "A comic reader app."
+description: "Windows-tablet-first fork of Kira."
 publish_to: "none"
-version: 1.7.0+486
+version: 0.1.0+1
 environment:
   sdk: ^3.11.0
 
@@ -65,7 +65,7 @@ dev_dependencies:
   path_provider_platform_interface: ^2.1.2
 
 flutter_launcher_icons:
-  image_path: "assets/ic_launcher.png"
+  image_path: "assets/kira_tablet_icon.png"
   android: true
   ios: true
   remove_alpha_ios: true
@@ -81,4 +81,5 @@ flutter:
   assets:
     - assets/ic_launcher.png
     - assets/ic_launcher_1.png
+    - assets/kira_tablet_icon.png
     - assets/github.svg
