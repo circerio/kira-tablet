@@ -257,21 +257,37 @@ void main() {
   }
 
   test(
-    'token validation uses only the explicit candidate and dynamic COPY headers',
+    'token validation fetches the matching profile with dynamic COPY headers',
     () async {
       await user.copyAccount.saveSession(_oldSession);
       final before = _mainSnapshot(user);
+      response = (request) {
+        final token = request.headers['Authorization']?.toString().replaceFirst(
+          'Token ',
+          '',
+        );
+        return _jsonResponse({
+          'code': 200,
+          'results': {
+            'user_id': '${token}-id',
+            'username': '${token}-user',
+            'nickname': 'COPY profile',
+            'avatar': 'https://example.invalid/avatar.png',
+          },
+        });
+      };
+
       final result = await api.validateCopyToken('  candidate-copy  ');
       expect(result.token, 'candidate-copy');
+      expect(result.userId, 'candidate-copy-id');
+      expect(result.username, 'candidate-copy-user');
       expect(user.copyToken, 'old-copy');
       expect(_mainSnapshot(user), before);
-      // Collection validation never invents a profile lookup.
-      final validation = copyAdapter.requests.single;
-      expect(result.username, isEmpty);
-      final request = validation;
+
+      final request = copyAdapter.requests.single;
       expect(request.uri.host, user.copyApiHost);
       expect(request.method, 'GET');
-      expect(request.path, endsWith('/api/v3/member/collect/books'));
+      expect(request.path, endsWith('/api/v3/member/info'));
       expect(request.headers['Authorization'], 'Token candidate-copy');
       expect(request.headers['User-Agent'], 'COPY/${user.copyAppVersion}');
       expect(request.headers['source'], 'copyApp');
@@ -279,18 +295,13 @@ void main() {
       expect(request.headers['version'], user.copyAppVersion);
       expect(request.headers['webp'], '1');
       expect(request.followRedirects, isFalse);
-      expect(request.uri.queryParameters, {
-        'limit': '1',
-        'offset': '0',
-        'free_type': '1',
-        'ordering': '-datetime_modifier',
-        'platform': '3',
-      });
+      expect(request.uri.queryParameters, {'platform': '3'});
+
       await user.setCopyApiHost('copy-test.invalid');
       await user.setCopyAppVersion('9.8.7');
       await api.validateCopyToken('second-copy');
       final changed = copyAdapter.requests
-          .where((r) => r.path.endsWith('/member/collect/books'))
+          .where((r) => r.path.endsWith('/member/info'))
           .last;
       expect(changed.uri.host, 'copy-test.invalid');
       expect(changed.headers['User-Agent'], 'COPY/9.8.7');

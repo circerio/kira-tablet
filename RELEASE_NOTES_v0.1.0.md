@@ -1,4 +1,4 @@
-# Kira Tablet v0.1.2 Preview
+# Kira Tablet v0.1.3 Preview
 
 First public preview focused on Windows 11 tablets and touch-first landscape use.
 
@@ -28,3 +28,8 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 - Stores WebView2 user data in the app support directory so installed builds can create a writable profile.
 - Uses the same Windows WebViewEnvironment for cookie access.
 - Shows an explicit WebView2 initialization state/error instead of a blank login pane.
+
+## v0.1.3 fixes
+- COPY token login now fetches the authenticated profile from /api/v3/member/info.
+- Valid tokens no longer fail merely because no prior local COPY identity exists.
+- Token validation remains side-effect free until the login is committed.

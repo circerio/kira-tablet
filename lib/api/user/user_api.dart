@@ -210,9 +210,8 @@ class UserApi {
     }
   }
 
-  /// Validate a candidate COPY token without changing either stored account.
-  /// The confirmed light-novel collection endpoint requires authentication;
-  /// COPY does not expose the primary transport's member/info endpoint.
+  /// Validate a candidate COPY token and fetch the matching COPY profile
+  /// without changing either stored account.
   Future<CopyAccountSession> validateCopyToken(String candidate) async {
     final token = candidate.trim();
     if (token.isEmpty) throw const FormatException('Empty COPY token');
@@ -242,42 +241,25 @@ class UserApi {
         );
     try {
       final response = await dio.get(
-        'https://${_t.user.copyApiHost}/api/v3/member/collect/books',
-        queryParameters: {
-          'limit': 1,
-          'offset': 0,
-          'free_type': 1,
-          'ordering': '-datetime_modifier',
-          'platform': 3,
-        },
+        'https://${_t.user.copyApiHost}/api/v3/member/info',
+        queryParameters: {'platform': 3},
       );
       final data = response.data;
       if (response.statusCode == 200 && data is Map && data['code'] == 200) {
         final results = data['results'];
-        if (results is Map && results['list'] is List) {
-          // This endpoint validates a token, not a profile. Only reuse identity
-          // already associated with this exact token; never guess a profile URL
-          // or borrow the currently selected account's name.
-          for (final account in _t.user.copyAccount.accounts) {
-            if (account.token == token) return account;
+        if (results is Map) {
+          final profile = Map<String, dynamic>.from(results);
+          final userId = profile['user_id']?.toString().trim() ?? '';
+          final username = profile['username']?.toString().trim() ?? '';
+          if (userId.isNotEmpty || username.isNotEmpty) {
+            return CopyAccountSession(
+              token: token,
+              userId: userId,
+              username: username,
+              nickname: profile['nickname']?.toString().trim() ?? '',
+              avatar: profile['avatar']?.toString().trim() ?? '',
+            );
           }
-          for (final account in [
-            ?_t.user.currentCredential,
-            ..._t.user.savedCredentials,
-          ]) {
-            if (account.source == 'copy' &&
-                account.token == token &&
-                account.hasIdentity) {
-              return CopyAccountSession(
-                token: token,
-                userId: account.userId ?? '',
-                username: account.username,
-                nickname: account.nickname ?? '',
-                avatar: account.avatar ?? '',
-              );
-            }
-          }
-          return CopyAccountSession(token: token);
         }
       }
       // No response-body logging: servers may echo the submitted credential.
