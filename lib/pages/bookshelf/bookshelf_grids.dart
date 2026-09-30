@@ -126,7 +126,7 @@ extension _BookshelfGrids on _BookshelfPageState {
 
     final changedDuringNavigation = _readingRecordChanged(before, record);
     var changed = false;
-    final nextItems = _items.map((item) {
+    var nextItems = _items.map((item) {
       if (item.comic.pathWord != pathWord) return item;
       final alreadyCurrent =
           item.lastBrowseId == record.chapterUuid &&
@@ -147,6 +147,9 @@ extension _BookshelfGrids on _BookshelfPageState {
     }).toList();
 
     if (!changed || !mounted) return;
+    if (_ordering == ApiOrdering.datetimeUpdated) {
+      nextItems = sortBookshelfByUnreadUpdate(nextItems);
+    }
     _setState(() => _items = nextItems);
     unawaited(
       _saveComicCache(

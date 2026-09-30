@@ -280,7 +280,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String sortByUpdateTimeDesc(String type) {
-    return '按$type最新章节的更新时间排序';
+    return '先显示有未读更新的$type，再按官方最新章节更新时间从新到旧排序';
   }
 
   @override
@@ -4333,7 +4333,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String sortByUpdateTimeDesc(String type) {
-    return '按$type最新章節的更新時間排序';
+    return '先顯示有未讀更新的$type，再按官方最新章節更新時間由新到舊排序';
   }
 
   @override

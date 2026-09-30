@@ -423,10 +423,26 @@ class BookshelfItem {
 
   BookshelfItem({required this.comic, this.lastBrowseId, this.lastBrowseName});
 
-  bool get hasUpdate =>
-      lastBrowseId != null &&
-      comic.lastChapterId != null &&
-      lastBrowseId != comic.lastChapterId;
+  bool get hasUpdate {
+    final latestId = comic.lastChapterId?.trim() ?? '';
+    if (latestId.isEmpty) return false;
+
+    final browseId = lastBrowseId?.trim() ?? '';
+    final browseName = lastBrowseName?.trim() ?? '';
+    if (browseId.isEmpty && browseName.isEmpty) return false;
+    if (browseId == latestId) return false;
+
+    // COPY occasionally reissues chapter UUIDs while keeping the same chapter
+    // title. Matching titles are therefore a useful secondary proof that the
+    // reader already reached the current latest chapter.
+    final latestName = comic.lastChapterName?.trim() ?? '';
+    if (browseName.isNotEmpty &&
+        latestName.isNotEmpty &&
+        browseName == latestName) {
+      return false;
+    }
+    return true;
+  }
 
   factory BookshelfItem.fromJson(Map<String, dynamic> json) => BookshelfItem(
     comic: Comic.fromJson(Map<String, dynamic>.from(json['comic'] ?? {})),

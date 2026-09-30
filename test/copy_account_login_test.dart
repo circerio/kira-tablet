@@ -269,8 +269,8 @@ void main() {
         return _jsonResponse({
           'code': 200,
           'results': {
-            'user_id': '${token}-id',
-            'username': '${token}-user',
+            'user_id': '$token-id',
+            'username': '$token-user',
             'nickname': 'COPY profile',
             'avatar': 'https://example.invalid/avatar.png',
           },

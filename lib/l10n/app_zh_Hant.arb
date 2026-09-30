@@ -146,7 +146,7 @@
   "sortLabel": "排序",
   "sortMethod": "排序方式",
   "sortByUpdateTime": "作品更新時間",
-  "sortByUpdateTimeDesc": "按{type}最新章節的更新時間排序",
+  "sortByUpdateTimeDesc": "先顯示有未讀更新的{type}，再按官方最新章節更新時間由新到舊排序",
   "@sortByUpdateTimeDesc": {
     "placeholders": {
       "type": {

@@ -18,6 +18,7 @@ import '../routing/app_router.dart';
 import '../routing/branch_activation.dart';
 import '../theme/app_spacing.dart';
 import '../utils/app_logger.dart';
+import '../utils/bookshelf_update_order.dart';
 import '../utils/reading_history.dart';
 import '../utils/screen_layout.dart';
 import '../utils/time_format.dart';
@@ -183,6 +184,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
 
   static const _showUpdateOnlyKey = 'local_bookshelf_show_update_only';
   static const _legacyShowUpdateOnlyKey = 'bookshelf_show_update_only';
+  static const _updateOrderingPageSize = 100;
 
   /// extension part 文件里的成员不是 State 子类成员，不能直接调用受保护的
   /// [setState]，统一经由这个转发方法。
@@ -329,16 +331,28 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
 
   Future<void> _tryLoadCache() async {
     final comicCached = await _comicRepo.loadFromCache();
-    if (comicCached != null && comicCached.items.isNotEmpty) {
-      setState(() {
-        _items = comicCached.items;
-        _total = comicCached.total;
-        _comicTotal = comicCached.total;
-        _offset = comicCached.items.length;
-        _comicCacheTime = comicCached.cacheTime;
-        _loading = false;
-      });
+    if (comicCached == null || comicCached.items.isEmpty) return;
+
+    // Older versions cached only the first page even for "by update". That
+    // cache cannot support unread-first ordering across the whole bookshelf.
+    if (_ordering == ApiOrdering.datetimeUpdated &&
+        comicCached.items.length < comicCached.total) {
+      return;
     }
+
+    var items = await reconcileBookshelfReadingProgress(comicCached.items);
+    if (_ordering == ApiOrdering.datetimeUpdated) {
+      items = sortBookshelfByUnreadUpdate(items);
+    }
+    if (!mounted) return;
+    setState(() {
+      _items = items;
+      _total = comicCached.total;
+      _comicTotal = comicCached.total;
+      _offset = items.length;
+      _comicCacheTime = comicCached.cacheTime;
+      _loading = false;
+    });
   }
 
   Future<void> _saveComicCache(
@@ -349,6 +363,39 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
     await _comicRepo.saveToCache(
       ComicBookshelfData(items: items, total: total, cacheTime: cacheTime),
     );
+  }
+
+  Future<({List<BookshelfItem> list, int total})> _fetchPreparedBookshelf({
+    int? limit,
+  }) async {
+    if (_ordering != ApiOrdering.datetimeUpdated) {
+      final data = await _api.manga.getBookshelf(
+        limit: limit ?? 12,
+        ordering: _ordering,
+      );
+      final items = await reconcileBookshelfReadingProgress(data.list);
+      return (list: items, total: data.total);
+    }
+
+    final all = <BookshelfItem>[];
+    var offset = 0;
+    var total = 0;
+    while (true) {
+      final page = await _api.manga.getBookshelf(
+        limit: _updateOrderingPageSize,
+        offset: offset,
+        ordering: ApiOrdering.datetimeUpdated,
+      );
+      total = page.total;
+      if (page.list.isEmpty) break;
+      all.addAll(page.list);
+      offset += page.list.length;
+      if (offset >= total) break;
+    }
+
+    var items = await reconcileBookshelfReadingProgress(all);
+    items = sortBookshelfByUnreadUpdate(items);
+    return (list: items, total: total);
   }
 
   Future<void> _load({bool silent = false, bool force = false}) async {
@@ -367,7 +414,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
     }
     _offset = 0;
     try {
-      final data = await _api.manga.getBookshelf(ordering: _ordering);
+      final data = await _fetchPreparedBookshelf();
       if (!mounted) return;
       final now = DateTime.now();
       setState(() {
@@ -422,10 +469,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
         if (mounted) setState(() {});
         return;
       }
-      final data = await _api.manga.getBookshelf(
-        limit: currentCount,
-        ordering: _ordering,
-      );
+      final data = await _fetchPreparedBookshelf(limit: currentCount);
       if (!mounted) return;
       setState(() {
         _items = data.list;
@@ -450,6 +494,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
   }
 
   Future<void> _loadMore() async {
+    if (_ordering == ApiOrdering.datetimeUpdated) return;
     if (_loadingMore || _refreshing || _offset >= _total) return;
     setState(() => _loadingMore = true);
     try {
@@ -457,9 +502,10 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
         offset: _offset,
         ordering: _ordering,
       );
+      final prepared = await reconcileBookshelfReadingProgress(data.list);
       if (!mounted) return;
       setState(() {
-        _items.addAll(data.list);
+        _items.addAll(prepared);
         _offset = _items.length;
       });
     } catch (e, stack) {

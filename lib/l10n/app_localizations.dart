@@ -604,7 +604,7 @@ abstract class AppLocalizations {
   /// No description provided for @sortByUpdateTimeDesc.
   ///
   /// In zh, this message translates to:
-  /// **'按{type}最新章节的更新时间排序'**
+  /// **'先显示有未读更新的{type}，再按官方最新章节更新时间从新到旧排序'**
   String sortByUpdateTimeDesc(String type);
 
   /// No description provided for @sortByFavoriteTime.

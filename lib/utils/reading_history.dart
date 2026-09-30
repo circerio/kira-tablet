@@ -211,6 +211,54 @@ class ReadingHistory {
     return latest;
   }
 
+  /// Batch snapshot used by bookshelf update detection.
+  ///
+  /// A comic may have records in multiple groups. The newest record is useful
+  /// for displaying progress, while update detection must consider the union of
+  /// every chapter ever recorded locally; reading an older side chapter later
+  /// must not make an already-read latest chapter look unread again.
+  static Future<Map<String, ComicReadingProgress>> progressForComics(
+    Iterable<String> pathWords,
+  ) async {
+    await flush();
+    final wanted = pathWords.where((e) => e.isNotEmpty).toSet();
+    if (wanted.isEmpty) return const {};
+
+    final prefs = await SharedPreferences.getInstance();
+    final latestByComic = <String, ReadingRecord>{};
+    final readByComic = <String, Set<String>>{};
+
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith(_prefix)) continue;
+      final pathWord = _pathWordOf(key);
+      if (!wanted.contains(pathWord)) continue;
+
+      final raw = prefs.getString(key);
+      if (raw == null) continue;
+      final record = _decode(raw);
+      if (record == null) continue;
+
+      final read = readByComic.putIfAbsent(pathWord, () => <String>{});
+      read.addAll(record.readChapterUuids);
+      if (record.chapterUuid.isNotEmpty) read.add(record.chapterUuid);
+
+      final current = latestByComic[pathWord];
+      if (current == null || _isRecordNewer(record, current)) {
+        latestByComic[pathWord] = record;
+      }
+    }
+
+    return {
+      for (final entry in latestByComic.entries)
+        entry.key: ComicReadingProgress(
+          latest: entry.value,
+          readChapterUuids: Set.unmodifiable(
+            readByComic[entry.key] ?? const <String>{},
+          ),
+        ),
+    };
+  }
+
   /// 获取全库最近更新的阅读记录,用于「继续阅读」入口。
   ///
   /// 返回 null 表示本地还没有任何阅读记录。同时带回 pathWord——
@@ -346,6 +394,16 @@ class _PendingSave {
   /// 窗口内读过的全部章节。逐条累加而非整体覆盖，否则连续翻章时
   /// 中间章节不会被计入已读。
   final Set<String> readChapterUuids = {};
+}
+
+class ComicReadingProgress {
+  final ReadingRecord latest;
+  final Set<String> readChapterUuids;
+
+  const ComicReadingProgress({
+    required this.latest,
+    required this.readChapterUuids,
+  });
 }
 
 class ReadingRecord {

@@ -1,4 +1,4 @@
-# Kira Tablet v0.1.3 Preview
+# Kira Tablet v0.1.4 Preview
 
 First public preview focused on Windows 11 tablets and touch-first landscape use.
 
@@ -33,3 +33,10 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 - COPY token login now fetches the authenticated profile from /api/v3/member/info.
 - Valid tokens no longer fail merely because no prior local COPY identity exists.
 - Token validation remains side-effect free until the login is committed.
+
+## v0.1.4 fixes
+- Bookshelf update badges now reconcile server browse progress with local reading history.
+- Reading the current latest chapter locally clears stale "updated" badges even if server browse data lags behind.
+- Matching latest chapter names also count as caught up when COPY reissues a chapter UUID.
+- "By update" now prioritizes comics with real unread updates, then sorts each group by official update time newest first.
+- "By update" loads the full bookshelf before sorting so unread updates beyond the first page are not hidden.
