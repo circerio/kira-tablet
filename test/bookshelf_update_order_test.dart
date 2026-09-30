@@ -43,43 +43,46 @@ void main() {
     await ReadingHistory.flush();
     SharedPreferences.setMockInitialValues({});
   });
-  test('hasUpdate accepts matching latest id or latest name as caught up', () {
-    final sameId = _item(
-      'same-id',
-      updated: '2026-10-01T10:00:00Z',
-      latestId: 'ch2',
-      latestName: '第2話',
-      browseId: 'ch2',
-      browseName: '第2話',
-    );
-    final reissuedId = _item(
-      'same-name',
-      updated: '2026-10-01T10:00:00Z',
-      latestId: 'new-ch2-id',
-      latestName: '第2話',
-      browseId: 'old-ch2-id',
-      browseName: '第2話',
-    );
-    final stale = _item(
-      'stale',
-      updated: '2026-10-01T10:00:00Z',
-      latestId: 'ch2',
-      latestName: '第2話',
-      browseId: 'ch1',
-      browseName: '第1話',
-    );
-    final neverRead = _item(
-      'never-read',
-      updated: '2026-10-01T10:00:00Z',
-      latestId: 'ch2',
-      latestName: '第2話',
-    );
+  test(
+    'hasUpdate treats a replacement UUID as new even with the same name',
+    () {
+      final sameId = _item(
+        'same-id',
+        updated: '2026-10-01T10:00:00Z',
+        latestId: 'ch2',
+        latestName: '第2話',
+        browseId: 'ch2',
+        browseName: '第2話',
+      );
+      final reissuedId = _item(
+        'same-name',
+        updated: '2026-10-01T10:00:00Z',
+        latestId: 'new-ch2-id',
+        latestName: '第2話',
+        browseId: 'old-ch2-id',
+        browseName: '第2話',
+      );
+      final stale = _item(
+        'stale',
+        updated: '2026-10-01T10:00:00Z',
+        latestId: 'ch2',
+        latestName: '第2話',
+        browseId: 'ch1',
+        browseName: '第1話',
+      );
+      final neverRead = _item(
+        'never-read',
+        updated: '2026-10-01T10:00:00Z',
+        latestId: 'ch2',
+        latestName: '第2話',
+      );
 
-    expect(sameId.hasUpdate, isFalse);
-    expect(reissuedId.hasUpdate, isFalse);
-    expect(stale.hasUpdate, isTrue);
-    expect(neverRead.hasUpdate, isFalse);
-  });
+      expect(sameId.hasUpdate, isFalse);
+      expect(reissuedId.hasUpdate, isTrue);
+      expect(stale.hasUpdate, isTrue);
+      expect(neverRead.hasUpdate, isFalse);
+    },
+  );
 
   test('by-update sort puts unread updates before newer caught-up works', () {
     final caughtNewest = _item(

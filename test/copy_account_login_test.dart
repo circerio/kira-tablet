@@ -863,6 +863,24 @@ void main() {
     );
   });
 
+  testWidgets('login username field keeps focus while text changes', (
+    tester,
+  ) async {
+    await pumpLogin(tester, copyOnly: false);
+    final usernameField = find.byType(TextField).first;
+    await tester.tap(usernameField);
+    await tester.pump();
+
+    final editable = tester.widget<EditableText>(
+      find.descendant(of: usernameField, matching: find.byType(EditableText)),
+    );
+    expect(editable.focusNode.hasFocus, isTrue);
+
+    await tester.enterText(usernameField, 'focus-stays-here');
+    await tester.pump();
+    expect(editable.focusNode.hasFocus, isTrue);
+  });
+
   test(
     'WebView official login validates then selects COPY in both domains',
     () async {

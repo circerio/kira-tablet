@@ -432,15 +432,10 @@ class BookshelfItem {
     if (browseId.isEmpty && browseName.isEmpty) return false;
     if (browseId == latestId) return false;
 
-    // COPY occasionally reissues chapter UUIDs while keeping the same chapter
-    // title. Matching titles are therefore a useful secondary proof that the
-    // reader already reached the current latest chapter.
-    final latestName = comic.lastChapterName?.trim() ?? '';
-    if (browseName.isNotEmpty &&
-        latestName.isNotEmpty &&
-        browseName == latestName) {
-      return false;
-    }
+    // Chapter UUID changes are significant. COPY may replace a mistakenly
+    // duplicated upload while keeping the same visible chapter name (for
+    // example a corrected "26" replacing the old duplicate "26"). In that
+    // case the replacement must surface as a new update.
     return true;
   }
 

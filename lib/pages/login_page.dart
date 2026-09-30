@@ -54,7 +54,6 @@ class _LoginPageState extends State<LoginPage> {
     if (!widget.copyOnly && _user.savedPassword != null) {
       _passwordCtrl.text = _user.savedPassword!;
     }
-    _usernameCtrl.addListener(_onCredentialDraftChanged);
     _user.addListener(_onUserChanged);
     _useCopyLogin = widget.copyOnly || _user.loginSource == 'copy';
   }
@@ -62,17 +61,12 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void dispose() {
     _user.removeListener(_onUserChanged);
-    _usernameCtrl.removeListener(_onCredentialDraftChanged);
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
 
   void _onUserChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _onCredentialDraftChanged() {
     if (mounted) setState(() {});
   }
 
@@ -247,7 +241,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextField(
-                      autofocus: true,
                       enabled: !dialogLoading,
                       obscureText: true,
                       autocorrect: false,
@@ -368,18 +361,19 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildBottomBar(BuildContext context, AppLocalizations l10n) {
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
-    // 与页面背景同色：亮色下页面底是 surfaceContainer，写作 cs.surface 会差一档色阶。
+    // Let Scaffold/Windows handle the touch-keyboard inset. Applying
+    // viewInsets.bottom again here makes the page jump by the keyboard height
+    // twice and can drop text-field focus on Windows tablets.
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             24,
             AppSpacing.sm,
             24,
-            AppSpacing.sm + viewInsets,
+            AppSpacing.sm,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

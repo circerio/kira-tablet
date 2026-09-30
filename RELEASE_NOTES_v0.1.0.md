@@ -1,4 +1,4 @@
-# Kira Tablet v0.1.4 Preview
+# Kira Tablet v0.1.5 Preview
 
 First public preview focused on Windows 11 tablets and touch-first landscape use.
 
@@ -40,3 +40,11 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 - Matching latest chapter names also count as caught up when COPY reissues a chapter UUID.
 - "By update" now prioritizes comics with real unread updates, then sorts each group by official update time newest first.
 - "By update" loads the full bookshelf before sorting so unread updates beyond the first page are not hidden.
+
+## v0.1.5 fixes
+- COPY chapter replacements now count as updates whenever the latest chapter UUID changes, even if the visible chapter name is unchanged.
+- Windows login no longer rebuilds the whole page on every username keystroke.
+- Token login no longer requests focus during dialog creation, reducing Windows 11 touch-keyboard focus churn.
+- Login bottom controls no longer apply the touch-keyboard inset twice.
+- GitHub Actions release workflow replaced with Windows-only CI; normal release tags no longer trigger inherited Android signing jobs or the obsolete kira.exe packaging check.
+- Windows CI now gates analyzer, bookshelf update tests, login focus stability, COPY token profile resolution, and a real Windows release build.

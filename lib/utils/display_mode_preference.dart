@@ -63,7 +63,7 @@ class DisplayModePreference {
           .toList();
       if (matches.isEmpty) {
         await FlutterDisplayMode.setPreferredMode(DisplayMode.auto);
-        return _setWindowPreferredRefreshRate(refreshRate);
+        return await _setWindowPreferredRefreshRate(refreshRate);
       }
 
       final picked = matches.firstWhere(
