@@ -1,4 +1,4 @@
-# Kira Tablet v0.1.5 Preview
+# Kira Tablet v0.1.6 Preview
 
 First public preview focused on Windows 11 tablets and touch-first landscape use.
 
@@ -48,3 +48,10 @@ First public preview focused on Windows 11 tablets and touch-first landscape use
 - Login bottom controls no longer apply the touch-keyboard inset twice.
 - GitHub Actions release workflow replaced with Windows-only CI; normal release tags no longer trigger inherited Android signing jobs or the obsolete kira.exe packaging check.
 - Windows CI now gates analyzer, bookshelf update tests, login focus stability, COPY token profile resolution, and a real Windows release build.
+
+## v0.1.6 fixes
+- Bookshelf updates now include any newly uploaded content, including extras and alternate groups.
+- Strict checks use the newest actual upload timestamp across all comic groups.
+- Corrected or re-uploaded older-numbered chapters still count as updates when they receive a new UUID and newer upload time.
+- Cross-group upload results are cached by the comic update marker so unchanged books do not repeat the extra checks.
+- Reading the newest actual upload clears the update flag using merged server and local read state.

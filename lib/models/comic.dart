@@ -421,9 +421,21 @@ class BookshelfItem {
   final String? lastBrowseId;
   final String? lastBrowseName;
 
-  BookshelfItem({required this.comic, this.lastBrowseId, this.lastBrowseName});
+  /// Local strict result based on the newest actual upload across all groups.
+  /// Null means fall back to the server's comic-level last_chapter metadata.
+  final bool? hasUpdateOverride;
+
+  BookshelfItem({
+    required this.comic,
+    this.lastBrowseId,
+    this.lastBrowseName,
+    this.hasUpdateOverride,
+  });
 
   bool get hasUpdate {
+    final override = hasUpdateOverride;
+    if (override != null) return override;
+
     final latestId = comic.lastChapterId?.trim() ?? '';
     if (latestId.isEmpty) return false;
 
@@ -443,12 +455,17 @@ class BookshelfItem {
     comic: Comic.fromJson(Map<String, dynamic>.from(json['comic'] ?? {})),
     lastBrowseId: json['last_browse_id']?.toString(),
     lastBrowseName: json['last_browse_name']?.toString(),
+    hasUpdateOverride: json['_local_has_update_override'] is bool
+        ? json['_local_has_update_override'] as bool
+        : null,
   );
 
   Map<String, dynamic> toJson() => {
     'comic': comic.toJson(),
     'last_browse_id': lastBrowseId,
     'last_browse_name': lastBrowseName,
+    if (hasUpdateOverride != null)
+      '_local_has_update_override': hasUpdateOverride,
   };
 }
 

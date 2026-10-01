@@ -143,6 +143,7 @@ extension _BookshelfGrids on _BookshelfPageState {
         comic: item.comic,
         lastBrowseId: record.chapterUuid,
         lastBrowseName: record.chapterName,
+        hasUpdateOverride: item.hasUpdateOverride,
       );
     }).toList();
 

@@ -427,11 +427,13 @@ class MangaApi {
   }
 
   // 5. Comic detail
-  Future<Comic> getComicDetail(String pathWord) async {
-    final data = await _t.get(
-      '/api/v3/comic2/$pathWord',
-      params: {'platform': 3},
-    );
+  Future<Comic> getComicDetail(
+    String pathWord, {
+    bool forceRefresh = false,
+  }) async {
+    final params = <String, dynamic>{'platform': 3};
+    if (forceRefresh) params['_update'] = true;
+    final data = await _t.get('/api/v3/comic2/$pathWord', params: params);
     return Comic.fromDetailJson(data);
   }
 
@@ -446,13 +448,118 @@ class MangaApi {
     String group = 'default',
     int limit = 100,
     int offset = 0,
+    bool forceRefresh = false,
   }) async {
+    final params = <String, dynamic>{'limit': limit, 'offset': offset};
+    if (forceRefresh) params['_update'] = true;
     final data = await _t.get(
       '/api/v3/comic/$pathWord/group/$group/chapters',
-      params: {'limit': limit, 'offset': offset},
+      params: params,
     );
     final list = _mapList(data, 'list', Chapter.fromJson);
     return (list: list, total: jsonInt(data, 'total', fallback: list.length));
+  }
+
+  /// Resolve actual uploads across every comic group since [since].
+  ///
+  /// COPY chapter lists are update-ordered, so a correction of an older
+  /// numbered chapter still appears near the front with a fresh
+  /// datetime_created. Multiple uploads from the same update window are kept
+  /// together instead of collapsing the event to one chapter.
+  Future<Set<String>> getNewUploadIds(
+    String pathWord, {
+    Comic? comicHint,
+    DateTime? since,
+  }) async {
+    final hintGroups = comicHint?.groups;
+    final comic = hintGroups != null && hintGroups.isNotEmpty
+        ? comicHint!
+        : await getComicDetail(pathWord, forceRefresh: true);
+
+    final groups = comic.groups;
+    final groupPathWords = <String>{
+      if (groups == null || groups.isEmpty)
+        'default'
+      else
+        for (final entry in groups.entries)
+          entry.value.pathWord.trim().isNotEmpty
+              ? entry.value.pathWord.trim()
+              : entry.key,
+    };
+
+    final chapterGroups = await Future.wait(
+      groupPathWords.map(
+        (group) => _getRecentGroupChapters(pathWord, group, since: since),
+      ),
+    );
+    final chapters = <Chapter>[
+      for (final group in chapterGroups) ...group,
+    ].where((chapter) => chapter.uuid.trim().isNotEmpty).toList();
+
+    final timestamped = <({Chapter chapter, DateTime created})>[];
+    for (final chapter in chapters) {
+      final created = DateTime.tryParse(chapter.datetimeCreated ?? '');
+      if (created != null) {
+        timestamped.add((chapter: chapter, created: created));
+      }
+    }
+
+    if (since != null && timestamped.isNotEmpty) {
+      return {
+        for (final entry in timestamped)
+          if (!entry.created.isBefore(since)) entry.chapter.uuid,
+      };
+    }
+
+    DateTime? newest;
+    final latestIds = <String>{};
+    for (final entry in timestamped) {
+      if (newest == null || entry.created.isAfter(newest)) {
+        newest = entry.created;
+        latestIds
+          ..clear()
+          ..add(entry.chapter.uuid);
+      } else if (entry.created.isAtSameMomentAs(newest)) {
+        latestIds.add(entry.chapter.uuid);
+      }
+    }
+    if (latestIds.isNotEmpty) return latestIds;
+
+    // Metadata fallback for malformed/legacy chapter timestamps.
+    final fallback = comic.lastChapterId?.trim() ?? '';
+    return fallback.isEmpty ? const <String>{} : <String>{fallback};
+  }
+
+  Future<List<Chapter>> _getRecentGroupChapters(
+    String pathWord,
+    String group, {
+    required DateTime? since,
+  }) async {
+    final chapters = <Chapter>[];
+    var offset = 0;
+
+    while (true) {
+      final page = await getChapterList(
+        pathWord,
+        group: group,
+        offset: offset,
+        forceRefresh: true,
+      );
+      if (page.list.isEmpty) break;
+      chapters.addAll(page.list);
+
+      if (since == null || offset + page.list.length >= page.total) break;
+
+      final reachedOldUpload = page.list.any((chapter) {
+        final created = DateTime.tryParse(chapter.datetimeCreated ?? '');
+        return created != null && created.isBefore(since);
+      });
+      if (reachedOldUpload) break;
+
+      offset += page.list.length;
+    }
+
+    return chapters;
   }
 
   // 8. Search comics

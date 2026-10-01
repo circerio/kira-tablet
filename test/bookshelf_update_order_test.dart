@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kira/models/comic.dart';
 import 'package:kira/utils/bookshelf_update_order.dart';
+import 'package:kira/utils/official_upload_tracker.dart';
 import 'package:kira/utils/reading_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -189,4 +190,197 @@ void main() {
     expect(reconciled.single.lastBrowseId, 'ch1');
     expect(reconciled.single.hasUpdate, isTrue);
   });
+
+  test(
+    'cross-group upload marker becomes update and clears after reading it',
+    () async {
+      var resolveCalls = 0;
+      final baseline = _item(
+        'cross-group',
+        updated: '2026-10-01T10:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      final first = await reconcileBookshelfUploadUpdates(
+        [baseline],
+        resolveNewUploads: (_, _) async {
+          resolveCalls++;
+          return {'should-not-run'};
+        },
+      );
+      expect(first.single.hasUpdate, isFalse);
+      expect(resolveCalls, 0);
+
+      final changed = _item(
+        'cross-group',
+        updated: '2026-10-01T12:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      final second = await reconcileBookshelfUploadUpdates(
+        [changed],
+        resolveNewUploads: (_, _) async {
+          resolveCalls++;
+          return {'extra-new'};
+        },
+      );
+      expect(second.single.hasUpdate, isTrue);
+      expect(resolveCalls, 1);
+
+      await ReadingHistory.save(
+        pathWord: 'cross-group',
+        group: 'extra',
+        chapterUuid: 'extra-new',
+        chapterName: 'New extra',
+      );
+      await ReadingHistory.flush();
+
+      final third = await reconcileBookshelfUploadUpdates(
+        [changed],
+        resolveNewUploads: (_, _) async {
+          resolveCalls++;
+          return {'unexpected-refetch'};
+        },
+      );
+      expect(third.single.hasUpdate, isFalse);
+      expect(resolveCalls, 1);
+    },
+  );
+
+  test(
+    'same-name replacement in another group is still a new upload',
+    () async {
+      final baseline = _item(
+        'replacement',
+        updated: '2026-10-01T08:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      await reconcileBookshelfUploadUpdates([
+        baseline,
+      ], resolveNewUploads: (_, _) async => {'unused'});
+
+      final changed = _item(
+        'replacement',
+        updated: '2026-10-01T13:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      final resolved = await reconcileBookshelfUploadUpdates([
+        changed,
+      ], resolveNewUploads: (_, _) async => {'fixed-26-new-uuid'});
+      expect(resolved.single.hasUpdate, isTrue);
+    },
+  );
+
+  test(
+    'multiple new uploads remain pending until every new upload is read',
+    () async {
+      var resolveCalls = 0;
+      final baseline = _item(
+        'multi-upload',
+        updated: '2026-10-01T10:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      await reconcileBookshelfUploadUpdates(
+        [baseline],
+        resolveNewUploads: (_, _) async {
+          resolveCalls++;
+          return {'should-not-run'};
+        },
+      );
+      expect(resolveCalls, 0);
+
+      final firstChange = _item(
+        'multi-upload',
+        updated: '2026-10-01T12:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      final firstResult = await reconcileBookshelfUploadUpdates(
+        [firstChange],
+        resolveNewUploads: (_, since) async {
+          expect(since, DateTime.parse('2026-10-01T10:00:00Z'));
+          resolveCalls++;
+          return {'extra-a', 'alternate-b'};
+        },
+      );
+      expect(firstResult.single.hasUpdate, isTrue);
+      expect(resolveCalls, 1);
+
+      await ReadingHistory.save(
+        pathWord: 'multi-upload',
+        group: 'extra',
+        chapterUuid: 'extra-a',
+        chapterName: 'Extra A',
+      );
+      await ReadingHistory.flush();
+
+      final afterOneRead = await reconcileBookshelfUploadUpdates(
+        [firstChange],
+        resolveNewUploads: (_, _) async {
+          resolveCalls++;
+          return {'unexpected-refetch'};
+        },
+      );
+      expect(afterOneRead.single.hasUpdate, isTrue);
+      expect(resolveCalls, 1);
+
+      final secondChange = _item(
+        'multi-upload',
+        updated: '2026-10-01T13:00:00Z',
+        latestId: 'main-30',
+        latestName: 'Chapter 30',
+        browseId: 'main-30',
+        browseName: 'Chapter 30',
+      );
+      final secondResult = await reconcileBookshelfUploadUpdates(
+        [secondChange],
+        resolveNewUploads: (_, since) async {
+          expect(since, DateTime.parse('2026-10-01T12:00:00Z'));
+          resolveCalls++;
+          return {'fixed-26'};
+        },
+      );
+      expect(secondResult.single.hasUpdate, isTrue);
+      expect(resolveCalls, 2);
+
+      await ReadingHistory.save(
+        pathWord: 'multi-upload',
+        group: 'alternate',
+        chapterUuid: 'alternate-b',
+        chapterName: 'Alternate B',
+      );
+      await ReadingHistory.save(
+        pathWord: 'multi-upload',
+        group: 'default',
+        chapterUuid: 'fixed-26',
+        chapterName: 'Chapter 26 fixed',
+      );
+      await ReadingHistory.flush();
+
+      final caughtUp = await reconcileBookshelfUploadUpdates(
+        [secondChange],
+        resolveNewUploads: (_, _) async {
+          resolveCalls++;
+          return {'unexpected-refetch'};
+        },
+      );
+      expect(caughtUp.single.hasUpdate, isFalse);
+      expect(resolveCalls, 2);
+    },
+  );
 }

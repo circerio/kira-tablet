@@ -31,6 +31,7 @@ BookshelfItem _reconcileItem(BookshelfItem item, ComicReadingProgress? local) {
       comic: item.comic,
       lastBrowseId: latestId,
       lastBrowseName: item.comic.lastChapterName ?? item.lastBrowseName,
+      hasUpdateOverride: item.hasUpdateOverride,
     );
   }
 
@@ -50,6 +51,7 @@ BookshelfItem _reconcileItem(BookshelfItem item, ComicReadingProgress? local) {
     lastBrowseName: localLatest.chapterName.isEmpty
         ? item.lastBrowseName
         : localLatest.chapterName,
+    hasUpdateOverride: item.hasUpdateOverride,
   );
 }
 

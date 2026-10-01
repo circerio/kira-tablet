@@ -19,6 +19,7 @@ import '../routing/branch_activation.dart';
 import '../theme/app_spacing.dart';
 import '../utils/app_logger.dart';
 import '../utils/bookshelf_update_order.dart';
+import '../utils/official_upload_tracker.dart';
 import '../utils/reading_history.dart';
 import '../utils/screen_layout.dart';
 import '../utils/time_format.dart';
@@ -329,6 +330,21 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
     await prefs.remove(_legacyShowUpdateOnlyKey);
   }
 
+  Future<List<BookshelfItem>> _prepareBookshelfItems(
+    List<BookshelfItem> items,
+  ) async {
+    var prepared = await reconcileBookshelfReadingProgress(items);
+    prepared = await reconcileBookshelfUploadUpdates(
+      prepared,
+      resolveNewUploads: (comic, since) => _api.manga.getNewUploadIds(
+        comic.pathWord,
+        comicHint: comic,
+        since: since,
+      ),
+    );
+    return prepared;
+  }
+
   Future<void> _tryLoadCache() async {
     final comicCached = await _comicRepo.loadFromCache();
     if (comicCached == null || comicCached.items.isEmpty) return;
@@ -340,7 +356,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
       return;
     }
 
-    var items = await reconcileBookshelfReadingProgress(comicCached.items);
+    var items = await _prepareBookshelfItems(comicCached.items);
     if (_ordering == ApiOrdering.datetimeUpdated) {
       items = sortBookshelfByUnreadUpdate(items);
     }
@@ -373,7 +389,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
         limit: limit ?? 12,
         ordering: _ordering,
       );
-      final items = await reconcileBookshelfReadingProgress(data.list);
+      final items = await _prepareBookshelfItems(data.list);
       return (list: items, total: data.total);
     }
 
@@ -393,7 +409,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
       if (offset >= total) break;
     }
 
-    var items = await reconcileBookshelfReadingProgress(all);
+    var items = await _prepareBookshelfItems(all);
     items = sortBookshelfByUnreadUpdate(items);
     return (list: items, total: total);
   }
@@ -502,7 +518,7 @@ class _BookshelfPageState extends ConsumerState<_ComicBookshelfPage>
         offset: _offset,
         ordering: _ordering,
       );
-      final prepared = await reconcileBookshelfReadingProgress(data.list);
+      final prepared = await _prepareBookshelfItems(data.list);
       if (!mounted) return;
       setState(() {
         _items.addAll(prepared);
